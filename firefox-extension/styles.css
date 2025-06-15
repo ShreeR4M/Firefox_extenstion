@@ -1,37 +1,165 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f4f4f4;
+.email-tracker-pixel {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
 }
 
-.popup {
-    width: 300px;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    background-color: white;
+.email-tracker-notification {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: #4CAF50 !important;
+  color: white !important;
+  padding: 12px 20px !important;
+  border-radius: 4px !important;
+  z-index: 10000 !important;
+  font-family: Arial, sans-serif !important;
+  font-size: 14px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+  animation: slideInRight 0.3s ease-out !important;
 }
 
-h1 {
-    font-size: 18px;
-    margin-bottom: 10px;
+.email-tracker-notification.success {
+  background: #4CAF50 !important;
 }
 
-.button {
-    background-color: #0078d7;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
+.email-tracker-notification.error {
+  background: #f44336 !important;
 }
 
-.button:hover {
-    background-color: #005a9e;
+.email-tracker-notification.warning {
+  background: #ff9800 !important;
 }
 
-.notification {
-    color: #ff0000;
-    font-weight: bold;
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%) !important;
+    opacity: 0 !important;
+  }
+  to {
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+  }
+}
+
+.gmail-tracker-indicator {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  margin-left: 5px !important;
+  vertical-align: middle !important;
+}
+
+.gmail-tracker-indicator.tracked {
+  background: #4CAF50 !important;
+}
+
+.gmail-tracker-indicator.pending {
+  background: #ff9800 !important;
+}
+
+.gmail-tracker-indicator.error {
+  background: #f44336 !important;
+}
+
+.compose-tracker-status {
+  background: rgba(76, 175, 80, 0.1) !important;
+  border: 1px solid #4CAF50 !important;
+  border-radius: 3px !important;
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  color: #2e7d32 !important;
+  margin-left: 5px !important;
+  display: inline-block !important;
+}
+
+.outlook-tracker-indicator {
+  display: inline-block !important;
+  font-size: 12px !important;
+  color: #4CAF50 !important;
+  margin-left: 8px !important;
+}
+
+.email-tracker-status {
+  font-size: 12px !important;
+  color: #666 !important;
+  font-weight: normal !important;
+  margin-left: 8px !important;
+}
+
+.email-tracker-tooltip {
+  position: relative !important;
+  display: inline-block !important;
+}
+
+.email-tracker-tooltip .tooltiptext {
+  visibility: hidden !important;
+  width: 200px !important;
+  background-color: #333 !important;
+  color: #fff !important;
+  text-align: center !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+  position: absolute !important;
+  z-index: 1000 !important;
+  bottom: 125% !important;
+  left: 50% !important;
+  margin-left: -100px !important;
+  font-size: 12px !important;
+  opacity: 0 !important;
+  transition: opacity 0.3s !important;
+}
+
+.email-tracker-tooltip:hover .tooltiptext {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+@-moz-document url-prefix() {
+  .email-tracker-notification {
+    user-select: none !important;
+    -moz-user-select: none !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .email-tracker-notification {
+    border: 2px solid currentColor !important;
+  }
+  
+  .gmail-tracker-indicator {
+    border: 1px solid currentColor !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .email-tracker-notification {
+    animation: none !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .email-tracker-notification {
+    background: #2d3748 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #4a5568 !important;
+  }
+  
+  .compose-tracker-status {
+    background: rgba(76, 175, 80, 0.2) !important;
+    border-color: #68d391 !important;
+    color: #68d391 !important;
+  }
+  
+  .email-tracker-tooltip .tooltiptext {
+    background-color: #1a202c !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #4a5568 !important;
+  }
 }

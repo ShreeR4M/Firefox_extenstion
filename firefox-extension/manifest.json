@@ -1,19 +1,41 @@
 {
   "manifest_version": 2,
-  "name": "Gmail Tracker",
-  "version": "1.0",
-  "description": "A Firefox extension to track Gmail activities.",
+  "name": "Firefox Email Tracker",
+  "version": "1.0.0",
+  "description": "Track email opens with invisible pixels - A Firefox-compatible alternative to Mailtrack",
   "permissions": [
+    "activeTab",
     "storage",
-    "notifications",
-    "activeTab"
+    "tabs",
+    "https://mail.google.com/*",
+    "https://outlook.live.com/*",
+    "https://outlook.office.com/*",
+    "https://outlook.office365.com/*",
+    "https://mail.yahoo.com/*",
+    "http://localhost:8001/*"
   ],
   "background": {
     "scripts": ["background.js"],
     "persistent": false
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*",
+        "https://mail.yahoo.com/*"
+      ],
+      "js": ["gmail-tracker.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
   "browser_action": {
     "default_popup": "popup.html",
+    "default_title": "Firefox Email Tracker",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
@@ -26,5 +48,8 @@
     "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
-  }
+  },
+  "web_accessible_resources": [
+    "pixel.png"
+  ]
 }

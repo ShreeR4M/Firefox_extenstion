@@ -143,7 +143,7 @@ function App() {
           </form>
         </div>
 
-        {/* Tracked Emails List */}
+        {}
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-semibold mb-6 text-gray-800">Tracked Emails</h2>
           {trackedEmails.length === 0 ? (
@@ -202,18 +202,6 @@ function App() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* How it Works */}
-        <div className="mt-12 bg-blue-50 rounded-lg p-6">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800">🔧 How Firefox Email Tracking Works</h2>
-          <div className="space-y-3 text-gray-700">
-            <p><strong>1. Create Tracking:</strong> Register an email with subject, sender, and recipient details</p>
-            <p><strong>2. Get Pixel URL:</strong> System generates a unique tracking pixel URL for the email</p>
-            <p><strong>3. Inject Pixel:</strong> Firefox extension automatically adds the 1x1 transparent pixel to outgoing emails</p>
-            <p><strong>4. Track Opens:</strong> When recipient opens email, the pixel loads and logs the open event</p>
-            <p><strong>5. View Status:</strong> Check real-time tracking status in the extension popup or dashboard</p>
-          </div>
         </div>
       </div>
     </div>
