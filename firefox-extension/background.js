@@ -6,10 +6,20 @@ browser.runtime.onInstalled.addListener((details) => {
   browser.storage.local.set({
     isEnabled: true,
     trackingEnabled: true,
-    apiUrl: API_BASE_URL,
     userEmail: ''
+  }).then(() => {
+    console.log("Default settings initialized");
   });
 });
+
+function showNotification(title, message) {
+  browser.notifications.create({
+    type: 'basic',
+    iconUrl: browser.runtime.getURL('icons/icon-48.png'),
+    title: title,
+    message: message
+  });
+}
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Background received message:', message);
@@ -17,8 +27,14 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'CREATE_TRACKING':
       createEmailTracking(message.data)
-        .then(response => sendResponse({ success: true, data: response }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
+        .then(response => {
+          console.log('Tracking created successfully:', response);
+          sendResponse({ success: true, data: response });
+        })
+        .catch(error => {
+          console.error('Error creating tracking:', error);
+          sendResponse({ success: false, error: error.message });
+        });
       return true; 
       
     case 'GET_TRACKED_EMAILS':
@@ -27,7 +43,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .catch(error => sendResponse({ success: false, error: error.message }));
       return true;
       
-
     case 'GET_SETTINGS':
       browser.storage.local.get(['isEnabled', 'trackingEnabled', 'userEmail'])
         .then(settings => sendResponse({ success: true, data: settings }))
@@ -39,11 +54,35 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(() => sendResponse({ success: true }))
         .catch(error => sendResponse({ success: false, error: error.message }));
       return true;
+
+    case 'TOGGLE_TRACKING':
+      browser.storage.local.set({ 
+        isEnabled: message.enabled, 
+        trackingEnabled: message.enabled 
+      })
+      .then(() => {
+        console.log('Tracking toggled:', message.enabled);
+        showNotification(
+          'Email Tracking', 
+          `Email tracking has been ${message.enabled ? 'enabled' : 'disabled'}`
+        );
+        sendResponse({ success: true });
+      })
+      .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+      
+    case 'SHOW_NOTIFICATION':
+      showNotification(message.title || 'Email Tracker', message.message || '');
+      sendResponse({ success: true });
+      return true;
   }
 });
 
 async function createEmailTracking(emailData) {
   try {
+    console.log('Creating email tracking with data:', emailData);
+    console.log('Sending request to:', `${API_BASE_URL}/track/email`);
+    
     const response = await fetch(`${API_BASE_URL}/track/email`, {
       method: 'POST',
       headers: {
@@ -52,24 +91,31 @@ async function createEmailTracking(emailData) {
       body: JSON.stringify(emailData)
     });
     
+    console.log('Response status:', response.status);
+    
     if (!response.ok) {
+      const text = await response.text();
+      console.error('Error response:', text);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
     const result = await response.json();
-    console.log('Email tracking created:', result);
+    console.log('Email tracking created successfully:', result);
     return result;
   } catch (error) {
-    console.error('Error creating email tracking:', error);
+    console.error('Error creating email tracking:', error, error.stack);
     throw error;
   }
 }
 
 async function getTrackedEmails(senderEmail) {
   try {
-    const url = senderEmail 
-      ? `${API_BASE_URL}/track/emails?sender_email=${encodeURIComponent(senderEmail)}`
-      : `${API_BASE_URL}/track/emails`;
+    let url = `${API_BASE_URL}/track/emails`;
+    if (senderEmail && senderEmail.trim()) {
+      url += `?sender_email=${encodeURIComponent(senderEmail)}`;
+    }
+    
+    console.log('Fetching tracked emails from:', url);
     
     const response = await fetch(url);
     
@@ -78,7 +124,7 @@ async function getTrackedEmails(senderEmail) {
     }
     
     const result = await response.json();
-    console.log('Tracked emails retrieved:', result);
+    console.log('Tracked emails retrieved:', result.length);
     return result;
   } catch (error) {
     console.error('Error getting tracked emails:', error);
@@ -88,36 +134,4 @@ async function getTrackedEmails(senderEmail) {
 
 function generatePixelUrl(trackingId) {
   return `${API_BASE_URL}/pixel/${trackingId}`;
-}
-
-browser.contextMenus.create({
-  id: "trackEmail",
-  title: "Track this email",
-  contexts: ["selection"]
-});
-
-browser.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "trackEmail") {
-    browser.tabs.sendMessage(tab.id, {
-      type: 'TRACK_SELECTED_EMAIL',
-      selectedText: info.selectionText
-    });
-  }
-});
-
-function showNotification(title, message) {
-  browser.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon-48.png',
-    title: title,
-    message: message
-  });
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    createEmailTracking,
-    getTrackedEmails,
-    generatePixelUrl
-  };
 }

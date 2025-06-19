@@ -47,6 +47,7 @@ class EmailTrack(BaseModel):
     tracking_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     sent_at: datetime = Field(default_factory=datetime.utcnow)
     opened_at: Optional[datetime] = None
+    last_opened_at: Optional[datetime] = None
     is_opened: bool = False
     open_count: int = 0
     user_agent: Optional[str] = None
@@ -89,7 +90,6 @@ async def get_status_checks():
 
 @api_router.post("/track/email", response_model=EmailTrack)
 async def create_email_track(email_data: EmailTrackCreate):
-    """Create a new email tracking record and return tracking pixel URL"""
     email_track = EmailTrack(**email_data.dict())
     await db.email_tracks.insert_one(email_track.dict())
     return email_track
@@ -123,6 +123,7 @@ async def serve_tracking_pixel(tracking_id: str, request: Request):
         update_data = {
             "is_opened": True,
             "open_count": email_track.get("open_count", 0) + 1,
+            "last_opened_at": datetime.utcnow(),
             "user_agent": user_agent,
             "ip_address": ip_address
         }
@@ -157,6 +158,7 @@ async def log_email_open(tracking_id: str, request: Request):
         update_data = {
             "is_opened": True,
             "open_count": email_track.get("open_count", 0) + 1,
+            "last_opened_at": datetime.utcnow(),
             "user_agent": user_agent,
             "ip_address": ip_address
         }

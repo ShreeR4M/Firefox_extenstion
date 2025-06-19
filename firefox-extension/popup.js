@@ -50,6 +50,11 @@ class EmailTrackerPopup {
     enableTrackingToggle.addEventListener('change', (e) => {
       this.settings.trackingEnabled = e.target.checked;
       this.saveSettings();
+
+       browser.runtime.sendMessage({
+          type: 'TOGGLE_TRACKING',
+          enabled: e.target.checked
+      });
     });
 
     const userEmailInput = document.getElementById('userEmail');
@@ -78,28 +83,28 @@ class EmailTrackerPopup {
   }
 
   async loadTrackedEmails() {
-    try {
-      const emailsList = document.getElementById('emailsList');
-      emailsList.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const emailsList = document.getElementById('emailsList');
+    emailsList.innerHTML = '<div class="loading">Loading...</div>';
 
-      const response = await browser.runtime.sendMessage({
-        type: 'GET_TRACKED_EMAILS',
-        senderEmail: this.settings.userEmail
-      });
+    const response = await browser.runtime.sendMessage({
+      type: 'GET_TRACKED_EMAILS'
+    });
 
-      if (response.success) {
-        this.trackedEmails = response.data;
-        this.updateEmailsList();
-        this.updateStats();
-      } else {
-        throw new Error(response.error);
-      }
-    } catch (error) {
-      console.error('Error loading tracked emails:', error);
-      document.getElementById('emailsList').innerHTML = 
-        '<div class="error">Failed to load emails. Please check your connection.</div>';
+    if (response.success) {
+      this.trackedEmails = response.data;
+      this.updateEmailsList();
+      this.updateStats();
+    } else {
+      throw new Error(response.error);
     }
+  } catch (error) {
+    console.error('Error loading tracked emails:', error);
+    document.getElementById('emailsList').innerHTML = 
+      '<div class="error">Failed to load emails. Please check your connection.</div>';
   }
+}
+
 
   updateEmailsList() {
     const emailsList = document.getElementById('emailsList');
