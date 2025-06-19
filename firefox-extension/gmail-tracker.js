@@ -3,72 +3,72 @@ class GmailTracker {
     this.isEnabled = false;
     this.userEmail = '';
     this.observers = [];
-  
+    this.processedComposeWindows = new Set();
+    this.eventListeners = new Map(); 
+    
     this.init();
   }
 
   async init() {
-  try {
-    const settings = await browser.storage.local.get(['isEnabled', 'trackingEnabled', 'userEmail']);
-    this.isEnabled = (settings.trackingEnabled !== undefined) ? 
-                      settings.trackingEnabled : 
-                      (settings.isEnabled !== undefined ? settings.isEnabled : true);
-                      
-    this.userEmail = settings.userEmail || '';
-    
-    // Auto-detect user email if not set
-    if (!this.userEmail) {
-      this.userEmail = this.detectUserEmail();
-      if (this.userEmail) {
-        // Save the detected email
-        browser.storage.local.set({ userEmail: this.userEmail });
-      }
-    }
-    
-    console.log('Gmail Tracker initialized with isEnabled:', this.isEnabled, 'userEmail:', this.userEmail);
-    
-    if (this.isEnabled) {
-      this.setupGmailTracking();
-    }
-    
-    browser.runtime.onMessage.addListener(this.handleMessage.bind(this));
-  } catch (error) {
-    console.error('Error initializing Gmail Tracker:', error);
-  }
-}
-
-detectUserEmail() {
-  try {
-    const selectors = [
-      '[email]',
-      '.gb_Ab',
-      '.gb_Bb', 
-      '[data-email]',
-      '.gb_yb .gb_zb',
-      '.gb_yb'
-    ];
-    
-    for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        const email = element.getAttribute('email') || 
-                     element.getAttribute('data-email') || 
-                     element.textContent.trim() ||
-                     element.title;
-        
-        if (email && email.includes('@')) {
-          console.log('Auto-detected user email:', email);
-          return email;
+    try {
+      const settings = await browser.storage.local.get(['isEnabled', 'trackingEnabled', 'userEmail']);
+      this.isEnabled = (settings.trackingEnabled !== undefined) ? 
+                        settings.trackingEnabled : 
+                        (settings.isEnabled !== undefined ? settings.isEnabled : true);
+                        
+      this.userEmail = settings.userEmail || '';
+      
+      if (!this.userEmail) {
+        this.userEmail = this.detectUserEmail();
+        if (this.userEmail) {
+          browser.storage.local.set({ userEmail: this.userEmail });
         }
       }
+      
+      console.log('Gmail Tracker initialized with isEnabled:', this.isEnabled, 'userEmail:', this.userEmail);
+      
+      if (this.isEnabled) {
+        this.setupGmailTracking();
+      }
+      
+      browser.runtime.onMessage.addListener(this.handleMessage.bind(this));
+    } catch (error) {
+      console.error('Error initializing Gmail Tracker:', error);
     }
-    
-    return null;
-  } catch (error) {
-    console.error('Error detecting user email:', error);
-    return null;
   }
-}
+
+  detectUserEmail() {
+    try {
+      const selectors = [
+        '[email]',
+        '.gb_Ab',
+        '.gb_Bb', 
+        '[data-email]',
+        '.gb_yb .gb_zb',
+        '.gb_yb'
+      ];
+      
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+          const email = element.getAttribute('email') || 
+                       element.getAttribute('data-email') || 
+                       element.textContent.trim() ||
+                       element.title;
+          
+          if (email && email.includes('@')) {
+            console.log('Auto-detected user email:', email);
+            return email;
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error detecting user email:', error);
+      return null;
+    }
+  }
 
   handleMessage(message, sender, sendResponse) {
     switch (message.type) {
@@ -95,7 +95,6 @@ detectUserEmail() {
     this.waitForGmail(() => {
       console.log('Gmail loaded, initializing tracker');
       this.observeCompose();
-      this.observeSendButton();
     });
   }
   
@@ -106,12 +105,8 @@ detectUserEmail() {
     const checkGmail = () => {
       attempts++;
       
-      if (document.querySelector('.compose')) {
-        callback();
-        return;
-      }
-      
-      if (document.querySelector('[role="main"]') || 
+      if (document.querySelector('.compose') || 
+          document.querySelector('[role="main"]') || 
           document.querySelector('.aAU') ||
           document.querySelector('.z0')) {
         callback();
@@ -136,18 +131,15 @@ detectUserEmail() {
         if (mutation.addedNodes && mutation.addedNodes.length) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType === Node.ELEMENT_NODE) {
-              const composeBox = node.querySelector('.Am.Al.editable') || 
-                                node.querySelector('[role="textbox"]') ||
-                                (node.classList && node.classList.contains('editable') ? node : null);
+              const composeWindow = node.closest('.M9') || 
+                                   node.closest('.aA5') || 
+                                   (node.getAttribute('role') === 'dialog' ? node : null) ||
+                                   node.querySelector('.M9') ||
+                                   node.querySelector('.aA5') ||
+                                   node.querySelector('[role="dialog"]');
                                 
-              if (composeBox) {
-                console.log('Compose window detected');
-                this.setupComposeBox(node.closest('.M9') || node.closest('.aA5') || node);
-              }
-              
-              if (node.nodeName === 'DIV' && node.getAttribute('role') === 'dialog') {
-                console.log('Dialog compose window detected');
-                this.setupComposeBox(node);
+              if (composeWindow) {
+                this.setupComposeBox(composeWindow);
               }
             }
           }
@@ -164,12 +156,13 @@ detectUserEmail() {
   }
   
   setupComposeBox(composeWindow) {
-    if (!composeWindow || composeWindow.dataset.trackingInitialized) {
+    const windowId = this.getComposeWindowId(composeWindow);
+    if (!windowId || this.processedComposeWindows.has(windowId)) {
       return;
     }
     
-    console.log('Setting up compose box...');
-    composeWindow.dataset.trackingInitialized = 'true';
+    console.log('Setting up compose box with ID:', windowId);
+    this.processedComposeWindows.add(windowId);
     
     const sendButton = composeWindow.querySelector('[role="button"][data-tooltip^="Send"]') ||
                       composeWindow.querySelector('[data-tooltip^="Send"]') ||
@@ -178,117 +171,150 @@ detectUserEmail() {
     if (sendButton) {
       console.log('Found send button, attaching listener');
       
-      sendButton.addEventListener('click', (e) => {
-        if (!this.isEnabled) {
-          console.log('Email tracking is disabled, not tracking this email');
-          return;
-        }
-        
-        console.log('Send button clicked, preparing to track email');
-        this.handleSendClick(e, composeWindow);
-      }, { capture: true });
+      const handleSend = this.createSendHandler(composeWindow);
+      
+      if (this.eventListeners.has(sendButton)) {
+        const oldHandler = this.eventListeners.get(sendButton);
+        sendButton.removeEventListener('click', oldHandler, { capture: true });
+      }
+      
+      this.eventListeners.set(sendButton, handleSend);
+      sendButton.addEventListener('click', handleSend, { capture: true });
+      
+      sendButton.dataset.trackerAttached = 'true';
     } else {
-      console.log('Send button not found');
+      console.log('Send button not found in compose window');
     }
+  }
+
+  createSendHandler(composeWindow) {
+    return (e) => {
+      if (!this.isEnabled) {
+        console.log('Email tracking is disabled, not tracking this email');
+        return;
+      }
+      
+      console.log('Send button clicked, preparing to track email');
+      this.handleSendClick(e, composeWindow);
+    };
+  }
+
+  getComposeWindowId(composeWindow) {
+    if (composeWindow.dataset.trackerId) {
+      return composeWindow.dataset.trackerId;
+    }
+    
+    const id = 'compose_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    composeWindow.dataset.trackerId = id;
+    return id;
   }
 
   async handleSendClick(event, composeWindow) {
     console.log('Processing send click');
     
-    const emailData = this.extractEmailData(composeWindow);
-    
-    if (!emailData || !emailData.recipient_email) {
-      console.log('Could not extract email data');
+    if (event.target.dataset.processing === 'true') {
+      console.log('Already processing this send click, skipping');
       return;
     }
     
-    console.log('Extracted email data:', emailData);
+    event.target.dataset.processing = 'true';
     
     try {
+      const emailData = this.extractEmailData(composeWindow);
+      
+      if (!emailData || !emailData.recipient_email) {
+        console.log('Could not extract email data');
+        return;
+      }
+      
+      console.log('Extracted email data:', emailData);
+      
       const response = await browser.runtime.sendMessage({
         type: 'CREATE_TRACKING',
         data: emailData
       });
       
       if (response && response.success) {
-      const trackingData = response.data;
-      console.log('Tracking created successfully:', trackingData);
-      
-      this.injectTrackingPixel(composeWindow, trackingData.tracking_id);
-      this.showTrackingNotification(emailData.email_subject);
-    } 
-    else {
-      console.error('Failed to create tracking:', response ? response.error : 'No response');
-    }
+        const trackingData = response.data;
+        console.log('Tracking created successfully:', trackingData);
+        
+        this.injectTrackingPixel(composeWindow, trackingData.tracking_id);
+        this.showTrackingNotification(emailData.email_subject);
+      } else {
+        console.error('Failed to create tracking:', response ? response.error : 'No response');
+      }
     } catch (error) {
       console.error('Error creating tracking:', error);
+    } finally {
+      setTimeout(() => {
+        if (event.target) {
+          event.target.dataset.processing = 'false';
+        }
+      }, 1000);
     }
   }
 
   extractEmailData(composeWindow) {
-  try {
-    const toField = composeWindow.querySelector('[name="to"]') || 
-                   composeWindow.querySelector('input[name="to"]') || 
-                   composeWindow.querySelector('textarea[name="to"]');
-    
-    const subjectField = composeWindow.querySelector('[name="subjectbox"]') ||
-                        composeWindow.querySelector('input[name="subject"]');
-    
-    const vR = composeWindow.querySelector('.vR');
-    const aoT = composeWindow.querySelector('.aoT');
-    
-    let recipientEmail = '';
-    let emailSubject = '';
-    let senderEmail = this.userEmail; // Start with stored email
-    
-    if (toField) {
-      recipientEmail = toField.value || toField.innerText;
-    } else if (vR) {
-      recipientEmail = vR.getAttribute('email') || vR.innerText;
-    }
-    
-    if (subjectField) {
-      emailSubject = subjectField.value || subjectField.innerText;
-    } else if (aoT) {
-      emailSubject = aoT.value || aoT.innerText;
-    }
-    
-    if (!senderEmail) {
-      const userEmailEl = document.querySelector('[email]') ||
-                         document.querySelector('.gb_Ab') ||
-                         document.querySelector('.gb_Bb') ||
-                         document.querySelector('[data-email]');
+    try {
+      const toField = composeWindow.querySelector('[name="to"]') || 
+                     composeWindow.querySelector('input[name="to"]') || 
+                     composeWindow.querySelector('textarea[name="to"]');
       
-      if (userEmailEl) {
-        senderEmail = userEmailEl.getAttribute('email') || 
-                     userEmailEl.getAttribute('data-email') || 
-                     userEmailEl.textContent.trim() ||
-                     userEmailEl.title;
+      const subjectField = composeWindow.querySelector('[name="subjectbox"]') ||
+                          composeWindow.querySelector('input[name="subject"]');
+      
+      const vR = composeWindow.querySelector('.vR');
+      const aoT = composeWindow.querySelector('.aoT');
+      
+      let recipientEmail = '';
+      let emailSubject = '';
+      let senderEmail = this.userEmail;
+      
+      if (toField) {
+        recipientEmail = toField.value || toField.innerText;
+      } else if (vR) {
+        recipientEmail = vR.getAttribute('email') || vR.innerText;
       }
-    }
-    
-    if (!senderEmail) {
-      const urlParams = new URLSearchParams(window.location.search);
-      senderEmail = urlParams.get('authuser') || 'unknown@gmail.com';
-    }
-    
-    if (!recipientEmail) {
-      console.log('Could not extract recipient email');
+      
+      if (subjectField) {
+        emailSubject = subjectField.value || subjectField.innerText;
+      } else if (aoT) {
+        emailSubject = aoT.value || aoT.innerText;
+      }
+      
+      if (!senderEmail) {
+        const userEmailEl = document.querySelector('[email]') ||
+                           document.querySelector('.gb_Ab') ||
+                           document.querySelector('.gb_Bb') ||
+                           document.querySelector('[data-email]');
+        
+        if (userEmailEl) {
+          senderEmail = userEmailEl.getAttribute('email') || 
+                       userEmailEl.getAttribute('data-email') || 
+                       userEmailEl.textContent.trim() ||
+                       userEmailEl.title;
+        }
+      }
+      
+      if (!senderEmail) {
+        senderEmail = 'unknown@gmail.com';
+      }
+      
+      if (!recipientEmail) {
+        console.log('Could not extract recipient email');
+        return null;
+      }
+      
+      return {
+        recipient_email: recipientEmail.trim(),
+        email_subject: emailSubject || 'No subject',
+        sender_email: senderEmail
+      };
+    } catch (error) {
+      console.error('Error extracting email data:', error);
       return null;
     }
-    
-    console.log('Extracted sender email:', senderEmail);
-    
-    return {
-      recipient_email: recipientEmail.trim(),
-      email_subject: emailSubject || 'No subject',
-      sender_email: senderEmail || 'unknown@gmail.com'
-    };
-  } catch (error) {
-    console.error('Error extracting email data:', error);
-    return null;
   }
-}
 
   injectTrackingPixel(composeWindow, trackingId) {
     console.log('Injecting tracking pixel for ID:', trackingId);
@@ -317,10 +343,7 @@ detectUserEmail() {
     }
     
     const pixelUrl = `http://localhost:8001/api/pixel/${trackingId}?cb=${Date.now()}`;
-    
     const pixelHtml = `<img src="${pixelUrl}" width="1" height="1" style="display:none !important; opacity:0 !important; visibility:hidden !important; max-height:1px !important; max-width:1px !important;" alt="" />`;
-    
-    console.log('Inserting tracking pixel HTML');
     
     try {
       if (bodyElement.innerHTML) {
@@ -359,62 +382,34 @@ detectUserEmail() {
       notification.remove();
     }, 5000);
   }
-
-  observeSendButton() {
-    const sendButtonObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.addedNodes && mutation.addedNodes.length) {
-          for (const node of mutation.addedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if ((node.getAttribute('role') === 'button' && 
-                  node.getAttribute('data-tooltip') && 
-                  node.getAttribute('data-tooltip').startsWith('Send')) ||
-                  node.classList && node.classList.contains('T-I-atl')) {
-                
-                const composeWindow = node.closest('.M9') || 
-                                     node.closest('.aA5') ||
-                                     node.closest('div[role="dialog"]');
-                                    
-                if (composeWindow && !composeWindow.dataset.trackingInitialized) {
-                  this.setupComposeBox(composeWindow);
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-    
-    sendButtonObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-    
-    this.observers.push(sendButtonObserver);
-  }
   
   refreshTracking() {
-  console.log('Refreshing tracking...');
-  browser.storage.local.get(['isEnabled', 'trackingEnabled', 'userEmail']).then(settings => {
-    console.log('Settings loaded in refreshTracking:', settings);
-    
-    this.isEnabled = (settings.trackingEnabled !== undefined) ? 
-                      settings.trackingEnabled : 
-                      (settings.isEnabled !== undefined ? settings.isEnabled : true);
-    this.userEmail = settings.userEmail || '';
-    
-    console.log('Refreshed tracking enabled status:', this.isEnabled);
-    
-    if (this.isEnabled) {
-      this.destroy();
-      this.setupGmailTracking();
-    }
-  });
-}
+    console.log('Refreshing tracking...');
+    browser.storage.local.get(['isEnabled', 'trackingEnabled', 'userEmail']).then(settings => {
+      this.isEnabled = (settings.trackingEnabled !== undefined) ? 
+                        settings.trackingEnabled : 
+                        (settings.isEnabled !== undefined ? settings.isEnabled : true);
+      this.userEmail = settings.userEmail || '';
+      
+      if (this.isEnabled) {
+        this.destroy();
+        this.setupGmailTracking();
+      }
+    });
+  }
+  
   destroy() {
     console.log('Destroying Gmail tracker...');
+    
+    this.eventListeners.forEach((handler, element) => {
+      element.removeEventListener('click', handler, { capture: true });
+    });
+    this.eventListeners.clear();
+    
     this.observers.forEach(observer => observer.disconnect());
     this.observers = [];
+    
+    this.processedComposeWindows.clear();
   }
 }
 
