@@ -4,6 +4,7 @@ import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
+
 function App() {
   const [trackedEmails, setTrackedEmails] = useState([]);
   const [testEmail, setTestEmail] = useState({
@@ -16,6 +17,13 @@ function App() {
 
   useEffect(() => {
     loadTrackedEmails();
+    
+    // Set up periodic refresh every 30 seconds
+    const refreshInterval = setInterval(() => {
+      loadTrackedEmails();
+    }, 30000);
+    
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const loadTrackedEmails = async () => {
@@ -58,12 +66,22 @@ function App() {
     return new Date(dateString).toLocaleString();
   };
 
-  const getPixelUrl = (trackingId) => {
-    return `${BACKEND_URL}/api/pixel/${trackingId}`;
+  const getPixelUrls = (trackingId) => {
+    return {
+      redirect: `${BACKEND_URL}/api/r/${trackingId}`,
+      alternateRedirect: `${BACKEND_URL}/api/t/${trackingId}`,
+      direct: `${BACKEND_URL}/api/pixel/${trackingId}`,
+    };
   };
 
-  const generateTrackingPixelHtml = (trackingId) => {
-    return `<img src="${getPixelUrl(trackingId)}" width="1" height="1" style="display:none;" alt="" />`;
+  const generateAdvancedTrackingPixelHtml = (trackingId) => {
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substr(2, 9);
+    
+    return `<!-- Advanced Multi-Pixel Tracking -->
+<img src="${BACKEND_URL}/api/r/${trackingId}" width="1" height="1" style="display:none;" alt="" />
+<img src="${BACKEND_URL}/api/t/${trackingId}" width="1" height="1" style="display:none;" alt="" />
+<img src="${BACKEND_URL}/api/pixel/${trackingId}?cb=${timestamp}&r=${randomId}" width="1" height="1" style="display:none;" alt="" />`;
   };
 
   return (
@@ -75,7 +93,7 @@ function App() {
             🦊 Firefox Email Tracker
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Track email opens with invisible pixels - A Firefox-compatible alternative to Mailtrack
+            Advanced email tracking with redirect chains - Bypass Gmail image caching
           </p>
         </div>
 
@@ -138,12 +156,12 @@ function App() {
               disabled={loading}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Email Tracking'}
+              {loading ? 'Creating...' : 'Create Advanced Email Tracking'}
             </button>
           </form>
         </div>
 
-        {}
+        {/* Tracked Emails */}
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-semibold mb-6 text-gray-800">Tracked Emails</h2>
           {trackedEmails.length === 0 ? (
@@ -168,7 +186,7 @@ function App() {
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {email.is_opened ? `Opened (${email.open_count}x)` : 'Not Opened'}
+                        {email.is_opened ? `📖 Opened (${email.open_count}x)` : '📧 Not Opened'}
                       </span>
                       <button
                         onClick={() => simulateEmailOpen(email.tracking_id)}
@@ -182,20 +200,32 @@ function App() {
                   {email.is_opened && (
                     <div className="bg-green-50 p-3 rounded-md text-sm">
                       <p><strong>First Opened:</strong> {formatDate(email.opened_at)}</p>
-                      <p><strong>Opens:</strong> {email.open_count}</p>
+                      <p><strong>Last Opened:</strong> {formatDate(email.last_opened_at)}</p>
+                      <p><strong>Total Opens:</strong> {email.open_count}</p>
                       {email.user_agent && <p><strong>User Agent:</strong> {email.user_agent}</p>}
                       {email.ip_address && <p><strong>IP Address:</strong> {email.ip_address}</p>}
                     </div>
                   )}
                   
                   <div className="mt-3 p-3 bg-gray-50 rounded-md">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Tracking Pixel URL:</p>
-                    <code className="text-xs bg-white p-2 rounded border block overflow-x-auto">
-                      {getPixelUrl(email.tracking_id)}
-                    </code>
-                    <p className="text-sm font-medium text-gray-700 mb-2 mt-3">HTML to inject in email:</p>
-                    <code className="text-xs bg-white p-2 rounded border block overflow-x-auto">
-                      {generateTrackingPixelHtml(email.tracking_id)}
+                    <p className="text-sm font-medium text-gray-700 mb-2">🔍 Advanced Tracking URLs:</p>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs font-medium text-gray-600">Primary Redirect:</p>
+                        <code className="text-xs bg-white p-2 rounded border block overflow-x-auto">
+                          {getPixelUrls(email.tracking_id).redirect}
+                        </code>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-600">Alternate Redirect:</p>
+                        <code className="text-xs bg-white p-2 rounded border block overflow-x-auto">
+                          {getPixelUrls(email.tracking_id).alternateRedirect}
+                        </code>
+                      </div>
+                    </div>
+                    <p className="text-sm font-medium text-gray-700 mb-2 mt-3">Advanced HTML to inject in email:</p>
+                    <code className="text-xs bg-white p-2 rounded border block overflow-x-auto whitespace-pre-wrap">
+                      {generateAdvancedTrackingPixelHtml(email.tracking_id)}
                     </code>
                   </div>
                 </div>
