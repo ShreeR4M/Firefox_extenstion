@@ -205,6 +205,13 @@ npm test
 - **API Access**: Integrate with other tools via REST API
 - **Thunderbird Support**: Extend functionality to Mozilla Thunderbird
 
+## Screenshot
+![image](https://github.com/user-attachments/assets/3e91d0b3-3250-40b6-9945-91509edd190f)
+
+![image](https://github.com/user-attachments/assets/b7be2388-489d-4d38-a790-8942f3333392)
+
+
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
