@@ -155,15 +155,6 @@ For production use, you'll need:
 
 ## ⚙️ Advanced Configuration
 
-### Multi-Pixel Tracking
-
-The extension uses multiple tracking pixels per email to improve tracking reliability. This can be configured in `gmail-tracker.js`:
-
-```javascript
-// Change number of tracking variants
-const pixelCount = 4;  // Increase for better tracking, decrease for less overhead
-```
-
 ### Custom Domains
 
 For production, use your own domain to avoid being blocked by email clients:
